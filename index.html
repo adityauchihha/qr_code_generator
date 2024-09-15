@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator with Cropped and Scaled Background Image</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        input, button {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #qrCode, #uploadedImage {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Code Generator with Cropped and Scaled Background Image</h1>
+    <input type="url" id="linkInput" placeholder="Paste your link here (e.g., https://www.youtube.com)">
+    <input type="file" id="imageUpload" accept="image/*">
+    <button id="generateBtn">Generate QR Code</button>
+    <div>
+        <img id="uploadedImage" alt="Uploaded Image">
+        <img id="qrCode" alt="Generated QR Code">
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script>
+        const linkInput = document.getElementById('linkInput');
+        const imageUpload = document.getElementById('imageUpload');
+        const generateBtn = document.getElementById('generateBtn');
+        const uploadedImage = document.getElementById('uploadedImage');
+        const qrCode = document.getElementById('qrCode');
+
+        function cropAndScaleImage(img, targetSize) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = targetSize;
+            canvas.height = targetSize;
+
+            const size = Math.min(img.width, img.height);
+            const x = (img.width - size) / 2;
+            const y = (img.height - size) / 2;
+
+            ctx.drawImage(img, x, y, size, size, 0, 0, targetSize, targetSize);
+            return canvas;
+        }
+
+        function overlayQRCode(ctx, qrData, size) {
+            const moduleCount = qrData.getModuleCount();
+            const moduleSize = Math.floor(size / moduleCount);
+            const actualSize = moduleSize * moduleCount;
+
+            for (let row = 0; row < moduleCount; row++) {
+                for (let col = 0; col < moduleCount; col++) {
+                    const x = col * moduleSize;
+                    const y = row * moduleSize;
+                    if (qrData.isDark(row, col)) {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+                    } else {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.56)';
+                    }
+                    ctx.fillRect(x, y, moduleSize, moduleSize);
+                }
+            }
+        }
+
+        generateBtn.addEventListener('click', () => {
+            let link = linkInput.value.trim();
+            if (!link) {
+                alert('Please enter a valid link');
+                return;
+            }
+
+            if (!uploadedImage.src) {
+                alert('Please upload an image');
+                return;
+            }
+
+            if (!/^https?:\/\//i.test(link)) {
+                link = 'https://' + link;
+            }
+
+            try {
+                const qr = qrcode(0, 'M');
+                qr.addData(link);
+                qr.make();
+
+                const img = new Image();
+                img.onload = () => {
+                    const size = 400; // Fixed size for QR code
+                    const croppedImage = cropAndScaleImage(img, size);
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = size;
+                    canvas.height = size;
+
+                    // Draw the cropped and scaled background image
+                    ctx.drawImage(croppedImage, 0, 0);
+
+                    // Overlay the QR code
+                    overlayQRCode(ctx, qr, size);
+
+                    qrCode.src = canvas.toDataURL('image/png');
+                };
+                img.src = uploadedImage.src;
+            } catch (error) {
+                console.error("Error generating QR code:", error);
+                alert("Error generating QR code. Please try a different image or a shorter URL.");
+            }
+        });
+
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    uploadedImage.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+</body>
+</html>
